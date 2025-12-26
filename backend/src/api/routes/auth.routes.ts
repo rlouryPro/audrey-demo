@@ -5,10 +5,12 @@ import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  secure: isProduction,
+  sameSite: isProduction ? 'none' as const : 'strict' as const,
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
 };
 
@@ -33,7 +35,11 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
 
 // POST /api/auth/logout
 router.post('/logout', (_req: Request, res: Response) => {
-  res.clearCookie('token', COOKIE_OPTIONS);
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' as const : 'strict' as const,
+  });
   res.json({ message: 'Deconnecte' });
 });
 
