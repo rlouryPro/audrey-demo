@@ -1,0 +1,1087 @@
+openapi: 3.0.3
+info:
+  title: Livret Numérique ESAT API
+  description: API REST pour l'application de parcours de compétences ESAT
+  version: 1.0.0
+  contact:
+    name: ESAT Support
+
+servers:
+  - url: http://localhost:3001/api
+    description: Développement local
+  - url: https://api.esat-livret.local/api
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentification
+  - name: Users
+    description: Gestion des utilisateurs (Admin)
+  - name: Events
+    description: Frise chronologique
+  - name: Skills
+    description: Référentiel de compétences
+  - name: UserSkills
+    description: Compétences utilisateur
+  - name: Validations
+    description: Validation des compétences (Admin)
+  - name: Documents
+    description: Génération de documents
+
+paths:
+  # ============ AUTH ============
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Connexion utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: token=abc123; HttpOnly; Secure; SameSite=Strict
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Déconnexion
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Déconnexion réussie
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Utilisateur courant
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Profil utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ USERS (Admin) ============
+  /users:
+    get:
+      tags: [Users]
+      summary: Liste des utilisateurs
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/Role'
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Liste des utilisateurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Users]
+      summary: Créer un utilisateur
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Utilisateur créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Username déjà utilisé
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Détail d'un utilisateur
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: Détail utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Users]
+      summary: Modifier un utilisateur
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Utilisateur modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /users/{userId}/portfolio:
+    get:
+      tags: [Users]
+      summary: Parcours complet d'un utilisateur (lecture seule)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: Parcours complet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPortfolio'
+
+  # ============ EVENTS ============
+  /events:
+    get:
+      tags: [Events]
+      summary: Mes événements
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Liste des événements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+
+    post:
+      tags: [Events]
+      summary: Ajouter un événement
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Événement créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+  /events/{eventId}:
+    get:
+      tags: [Events]
+      summary: Détail d'un événement
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          description: Détail événement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+    patch:
+      tags: [Events]
+      summary: Modifier un événement
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateEventRequest'
+      responses:
+        '200':
+          description: Événement modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+    delete:
+      tags: [Events]
+      summary: Supprimer un événement
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '204':
+          description: Événement supprimé
+
+  # ============ SKILLS (Référentiel) ============
+  /domains:
+    get:
+      tags: [Skills]
+      summary: Liste des domaines avec catégories et compétences
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Hiérarchie complète
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DomainWithHierarchy'
+
+    post:
+      tags: [Skills]
+      summary: Créer un domaine (Admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDomainRequest'
+      responses:
+        '201':
+          description: Domaine créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Domain'
+
+  /domains/{domainId}:
+    patch:
+      tags: [Skills]
+      summary: Modifier un domaine (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/domainId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDomainRequest'
+      responses:
+        '200':
+          description: Domaine modifié
+
+    delete:
+      tags: [Skills]
+      summary: Supprimer un domaine (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/domainId'
+      responses:
+        '204':
+          description: Domaine supprimé
+
+  /categories:
+    post:
+      tags: [Skills]
+      summary: Créer une catégorie (Admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Catégorie créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /categories/{categoryId}:
+    patch:
+      tags: [Skills]
+      summary: Modifier une catégorie (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/categoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Catégorie modifiée
+
+    delete:
+      tags: [Skills]
+      summary: Supprimer une catégorie (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/categoryId'
+      responses:
+        '204':
+          description: Catégorie supprimée
+
+  /skills:
+    post:
+      tags: [Skills]
+      summary: Créer une compétence (Admin)
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSkillRequest'
+      responses:
+        '201':
+          description: Compétence créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Skill'
+
+  /skills/{skillId}:
+    patch:
+      tags: [Skills]
+      summary: Modifier une compétence (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/skillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSkillRequest'
+      responses:
+        '200':
+          description: Compétence modifiée
+
+    delete:
+      tags: [Skills]
+      summary: Supprimer une compétence (Admin)
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/skillId'
+      responses:
+        '204':
+          description: Compétence supprimée
+
+  # ============ USER SKILLS ============
+  /my-skills:
+    get:
+      tags: [UserSkills]
+      summary: Mes compétences avec récapitulatif
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Récapitulatif des compétences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MySkillsSummary'
+
+  /my-skills/{skillId}:
+    post:
+      tags: [UserSkills]
+      summary: Ajouter une compétence à mon profil
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/skillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserSkillRequest'
+      responses:
+        '201':
+          description: Compétence ajoutée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSkill'
+        '409':
+          description: Compétence déjà ajoutée
+
+    patch:
+      tags: [UserSkills]
+      summary: Modifier le statut d'une compétence
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/skillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserSkillRequest'
+      responses:
+        '200':
+          description: Statut modifié
+
+    delete:
+      tags: [UserSkills]
+      summary: Retirer une compétence de mon profil
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/skillId'
+      responses:
+        '204':
+          description: Compétence retirée
+
+  # ============ VALIDATIONS (Admin) ============
+  /validations:
+    get:
+      tags: [Validations]
+      summary: Liste des compétences en attente de validation
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Validations en attente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingValidation'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /validations/{userSkillId}/approve:
+    post:
+      tags: [Validations]
+      summary: Valider une compétence
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userSkillId'
+      responses:
+        '200':
+          description: Compétence validée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSkill'
+
+  /validations/{userSkillId}/reject:
+    post:
+      tags: [Validations]
+      summary: Refuser une compétence
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userSkillId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectValidationRequest'
+      responses:
+        '200':
+          description: Compétence refusée
+
+  # ============ DOCUMENTS ============
+  /documents/preview:
+    get:
+      tags: [Documents]
+      summary: Aperçu du document de synthèse
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Données pour aperçu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentPreview'
+
+  /documents/generate:
+    post:
+      tags: [Documents]
+      summary: Générer le PDF du document de synthèse
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: PDF généré
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="parcours-2025.pdf"
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+
+  parameters:
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    eventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    domainId:
+      name: domainId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    categoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    skillId:
+      name: skillId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    userSkillId:
+      name: userSkillId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Accès interdit (rôle insuffisant)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Role:
+      type: string
+      enum: [USER, ADMIN]
+
+    SkillStatus:
+      type: string
+      enum: [IN_PROGRESS, PENDING_VALIDATION, ACQUIRED, REJECTED]
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 6
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        avatarLevel:
+          type: integer
+          minimum: 1
+          maximum: 5
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            skillsCount:
+              type: object
+              properties:
+                acquired:
+                  type: integer
+                inProgress:
+                  type: integer
+                pending:
+                  type: integer
+            eventsCount:
+              type: integer
+
+    CreateUserRequest:
+      type: object
+      required: [username, password, firstName, lastName, role]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 6
+        firstName:
+          type: string
+          maxLength: 100
+        lastName:
+          type: string
+          maxLength: 100
+        role:
+          $ref: '#/components/schemas/Role'
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        isActive:
+          type: boolean
+        password:
+          type: string
+          minLength: 6
+
+    UserPortfolio:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        skills:
+          $ref: '#/components/schemas/MySkillsSummary'
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 100
+        photoUrl:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateEventRequest:
+      type: object
+      required: [date, title]
+      properties:
+        date:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 100
+        photo:
+          type: string
+          format: binary
+
+    UpdateEventRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        title:
+          type: string
+          maxLength: 100
+        photo:
+          type: string
+          format: binary
+
+    Domain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+
+    DomainWithHierarchy:
+      allOf:
+        - $ref: '#/components/schemas/Domain'
+        - type: object
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/CategoryWithSkills'
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        domainId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+
+    CategoryWithSkills:
+      allOf:
+        - $ref: '#/components/schemas/Category'
+        - type: object
+          properties:
+            skills:
+              type: array
+              items:
+                $ref: '#/components/schemas/Skill'
+
+    Skill:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    CreateDomainRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        displayOrder:
+          type: integer
+
+    UpdateDomainRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        displayOrder:
+          type: integer
+
+    CreateCategoryRequest:
+      type: object
+      required: [domainId, name]
+      properties:
+        domainId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        displayOrder:
+          type: integer
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        displayOrder:
+          type: integer
+
+    CreateSkillRequest:
+      type: object
+      required: [categoryId, name, description, iconName]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        iconName:
+          type: string
+        displayOrder:
+          type: integer
+
+    UpdateSkillRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    UserSkill:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        skillId:
+          type: string
+          format: uuid
+        skill:
+          $ref: '#/components/schemas/Skill'
+        status:
+          $ref: '#/components/schemas/SkillStatus'
+        requestedAt:
+          type: string
+          format: date-time
+        validatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+
+    MySkillsSummary:
+      type: object
+      properties:
+        avatarLevel:
+          type: integer
+        summary:
+          type: object
+          properties:
+            acquired:
+              type: integer
+            inProgress:
+              type: integer
+            pendingValidation:
+              type: integer
+            rejected:
+              type: integer
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSkill'
+
+    AddUserSkillRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [IN_PROGRESS, PENDING_VALIDATION]
+
+    UpdateUserSkillRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [IN_PROGRESS, PENDING_VALIDATION]
+
+    PendingValidation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/User'
+        skill:
+          $ref: '#/components/schemas/Skill'
+        requestedAt:
+          type: string
+          format: date-time
+
+    RejectValidationRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+
+    DocumentPreview:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        acquiredSkills:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSkill'
+        generatedAt:
+          type: string
+          format: date-time

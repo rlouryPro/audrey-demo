@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SkillStatus {
+  IN_PROGRESS
+  PENDING_VALIDATION
+  ACQUIRED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(USER)
+  avatarLevel  Int      @default(1)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  events          Event[]
+  userSkills      UserSkill[] @relation("UserSkills")
+  validatedSkills UserSkill[] @relation("ValidatedSkills")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Event {
+  id           String   @id @default(uuid())
+  userId       String
+  date         DateTime @db.Date
+  title        String   @db.VarChar(200)
+  description  String?  @db.VarChar(1000)
+  photoUrl     String?
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date(sort: Desc)])
+}
+
+model Domain {
+  id           String   @id @default(uuid())
+  name         String   @unique @db.VarChar(100)
+  description  String?  @db.VarChar(500)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  categories Category[]
+
+  @@index([displayOrder])
+}
+
+model Category {
+  id           String   @id @default(uuid())
+  domainId     String
+  name         String   @db.VarChar(100)
+  description  String?  @db.VarChar(500)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  domain Domain  @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  skills Skill[]
+
+  @@unique([domainId, name])
+  @@index([domainId, displayOrder])
+}
+
+model Skill {
+  id           String   @id @default(uuid())
+  categoryId   String
+  name         String   @db.VarChar(100)
+  description  String   @db.VarChar(500)
+  iconName     String   @db.VarChar(50)
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userSkills UserSkill[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId, displayOrder])
+  @@index([isActive])
+}
+
+model UserSkill {
+  id              String      @id @default(uuid())
+  userId          String
+  skillId         String
+  status          SkillStatus
+  requestedAt     DateTime    @default(now())
+  validatedAt     DateTime?
+  validatedById   String?
+  rejectionReason String?     @db.VarChar(500)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user        User   @relation("UserSkills", fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  validatedBy User?  @relation("ValidatedSkills", fields: [validatedById], references: [id])
+
+  @@unique([userId, skillId])
+  @@index([status])
+  @@index([userId, status])
+}
