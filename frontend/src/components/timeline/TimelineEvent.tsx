@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronRight, Pencil, Trash2, ImageIcon } from 'lucide-react'
 import type { Event } from '../../services/events.service'
 
 interface TimelineEventProps {
@@ -12,11 +12,16 @@ interface TimelineEventProps {
 
 export default function TimelineEvent({ event, onEdit, onDelete }: TimelineEventProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [imageError, setImageError] = useState(false)
 
   const formattedDate = new Date(event.date).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
   })
+
+  // Use thumbnailUrl for display, fallback to photoUrl
+  const imageUrl = event.thumbnailUrl || event.photoUrl
+  const hasImage = imageUrl && !imageError
 
   return (
     <article
@@ -28,15 +33,26 @@ export default function TimelineEvent({ event, onEdit, onDelete }: TimelineEvent
         {/* Connector line top */}
         <div className="w-0.5 h-4 bg-primary-200" aria-hidden />
 
-        {/* Node circle */}
+        {/* Node circle - show thumbnail if available */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="relative w-8 h-8 rounded-full bg-white border-4 border-primary-400 hover:border-primary-600 hover:scale-110 transition-all focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 z-10 flex items-center justify-center"
+          className={`relative rounded-full hover:scale-110 transition-all focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 z-10 flex items-center justify-center overflow-hidden ${
+            hasImage
+              ? 'w-12 h-12 border-4 border-primary-400 hover:border-primary-600'
+              : 'w-8 h-8 bg-white border-4 border-primary-400 hover:border-primary-600'
+          }`}
           aria-expanded={isExpanded}
           aria-controls={`event-${event.id}-details`}
           aria-label={isExpanded ? "Reduire l'evenement" : "Developper l'evenement"}
         >
-          {isExpanded ? (
+          {hasImage ? (
+            <img
+              src={imageUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : isExpanded ? (
             <ChevronDown className="w-4 h-4 text-primary-600" aria-hidden />
           ) : (
             <ChevronRight className="w-4 h-4 text-primary-600" aria-hidden />
@@ -62,6 +78,9 @@ export default function TimelineEvent({ event, onEdit, onDelete }: TimelineEvent
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary-50 text-primary-700 rounded-full text-xs font-medium mb-2">
                   <Calendar className="w-3 h-3" aria-hidden />
                   <time dateTime={event.date}>{formattedDate}</time>
+                  {hasImage && (
+                    <ImageIcon className="w-3 h-3 ml-1" aria-label="Contient une photo" />
+                  )}
                 </div>
 
                 {/* Title */}
@@ -96,12 +115,13 @@ export default function TimelineEvent({ event, onEdit, onDelete }: TimelineEvent
               id={`event-${event.id}-details`}
               className="border-t border-gray-100 bg-gray-50/50"
             >
-              {event.thumbnailUrl && (
+              {hasImage && (
                 <div className="p-4 pb-0">
                   <img
-                    src={event.thumbnailUrl}
+                    src={imageUrl}
                     alt={`Photo de ${event.title}`}
-                    className="w-full h-48 object-cover rounded-lg shadow-sm"
+                    className="w-full max-h-64 object-contain rounded-lg shadow-sm bg-gray-100"
+                    onError={() => setImageError(true)}
                   />
                 </div>
               )}
@@ -110,7 +130,7 @@ export default function TimelineEvent({ event, onEdit, onDelete }: TimelineEvent
                   <p className="text-text-muted leading-relaxed">{event.description}</p>
                 </div>
               )}
-              {!event.thumbnailUrl && !event.description && (
+              {!hasImage && !event.description && (
                 <div className="p-4 text-center text-text-muted text-sm">
                   Aucun detail supplementaire pour cet evenement.
                 </div>
